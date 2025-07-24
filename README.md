@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>绩效核算工具（旺季版）</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        input {
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .total-row {
+            font-weight: bold;
+            background-color: #f9f9f9;
+        }
+        select {
+            padding: 5px;
+            font-size: 16px;
+        }
+        button {
+            margin: 10px 0;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .channel-display {
+            margin: 15px 0;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+
+<h2>绩效核算工具（旺季版）</h2>
+
+<div class="channel-display">
+    <strong>渠道分类：</strong>
+    低价渠道【IP（19元、29元）、APP、Koc】 | 
+    中价渠道【IP（49元）、商务】 | 
+    高价渠道【IP（99元）、信息流、大搜】
+</div>
+
+<label for="channel">选择渠道：</label>
+<select id="channel">
+    <option value="low">低价渠道</option>
+    <option value="medium">中价渠道</option>
+    <option value="high">高价渠道</option>
+</select>
+
+<button onclick="saveData()">保存数据</button>
+<button onclick="exportData()">导出数据为CSV</button>
+
+<table id="performanceTable">
+    <thead>
+        <tr>
+            <th>期数</th>
+            <th>例子数</th>
+            <th>订单数</th>
+            <th>GMV</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>1</td>
+            <td><input type="number" class="examples"></td>
+            <td><input type="number" class="orders"></td>
+            <td><input type="number" class="gmv"></td>
+        </tr>
+        <tr>
+            <td>2</td>
+            <td><input type="number" class="examples"></td>
+            <td><input type="number" class="orders"></td>
+            <td><input type="number" class="gmv"></td>
+        </tr>
+        <tr>
+            <td>3</td>
+            <td><input type="number" class="examples"></td>
+            <td><input type="number" class="orders"></td>
+            <td><input type="number" class="gmv"></td>
+        </tr>
+        <tr>
+            <td>4</td>
+            <td><input type="number" class="examples"></td>
+            <td><input type="number" class="orders"></td>
+            <td><input type="number" class="gmv"></td>
+        </tr>
+    </tbody>
+    <tfoot>
+        <tr class="total-row">
+            <td>总计</td>
+            <td id="totalExamples"></td>
+            <td id="totalOrders"></td>
+            <td id="totalGMV"></td>
+        </tr>
+    </tfoot>
+</table>
+
+<h3>绩效计算结果</h3>
+<table>
+    <tr>
+        <th>总订单转化率</th>
+        <th>提成比率</th>
+        <th>总提成金额</th>
+        <th>实际到手提成</th>
+        <th>距离下一个提点差多少订单</th>
+    </tr>
+    <tr>
+        <td id="totalConversionRate"></td>
+        <td id="commissionRate"></td>
+        <td id="totalCommission"></td>
+        <td id="actualCommission"></td>
+        <td id="ordersNeeded"></td>
+    </tr>
+</table>
+
+<script>
+function getCommissionRate(conversionRate, channel) {
+    let rates = [];
+    if (channel === "low") { // 低价渠道【IP（19元、29元）、APP、Koc】
+        rates = [
+            { rate: 0.05, threshold: 0.02 }, // 提点5%（≥2%-＜4%）
+            { rate: 0.07, threshold: 0.04 }, // 提点7%（≥4%-＜6%）
+            { rate: 0.09, threshold: 0.06 }, // 提点9%（≥6%-＜9%）
+            { rate: 0.11, threshold: 0.09 }, // 提点11%（≥9%-＜11%）
+            { rate: 0.13, threshold: 0.11 }, // 提点13%（≥11%-＜13%）
+            { rate: 0.15, threshold: 0.13 }  // 提点15%（订转≥13%）
+        ];
+    } else if (channel === "medium") { // 中价渠道【IP（49元）、商务】
+        rates = [
+            { rate: 0.04, threshold: 0.03 }, // 提点4%（≥3%-＜6%）
+            { rate: 0.06, threshold: 0.06 }, // 提点6%（≥6%-＜9%）
+            { rate: 0.08, threshold: 0.09 }, // 提点8%（≥9%-＜11%）
+            { rate: 0.10, threshold: 0.11 }, // 提点10%（≥11%-＜14%）
+            { rate: 0.12, threshold: 0.14 }, // 提点12%（≥14%-＜17%）
+            { rate: 0.14, threshold: 0.17 }  // 提点14%（订转≥17%）
+        ];
+    } else if (channel === "high") { // 高价渠道【IP（99元）、信息流、大搜】
+        rates = [
+            { rate: 0.04, threshold: 0.04 }, // 提点4%（≥4%-＜8%）
+            { rate: 0.06, threshold: 0.08 }, // 提点6%（≥8%-＜12%）
+            { rate: 0.08, threshold: 0.12 }, // 提点8%（≥12%-＜16%）
+            { rate: 0.10, threshold: 0.16 }, // 提点10%（≥16%-＜20%）
+            { rate: 0.12, threshold: 0.20 }, // 提点12%（≥20%-＜24%）
+            { rate: 0.14, threshold: 0.24 }  // 提点14%（订转≥24%）
+        ];
+    }
+
+    let maxRate = 0;
+    for (let i = 0; i < rates.length; i++) {
+        if (conversionRate >= rates[i].threshold && rates[i].rate > maxRate) {
+            maxRate = rates[i].rate;
+        }
+    }
+
+    return maxRate;
+}
+
+function getNextThreshold(conversionRate, channel) {
+    let rates = [];
+    if (channel === "low") { // 低价渠道
+        rates = [
+            { rate: 0.05, threshold: 0.02 },
+            { rate: 0.07, threshold: 0.04 },
+            { rate: 0.09, threshold: 0.06 },
+            { rate: 0.11, threshold: 0.09 },
+            { rate: 0.13, threshold: 0.11 },
+            { rate: 0.15, threshold: 0.13 }
+        ];
+    } else if (channel === "medium") { // 中价渠道
+        rates = [
+            { rate: 0.04, threshold: 0.03 },
+            { rate: 0.06, threshold: 0.06 },
+            { rate: 0.08, threshold: 0.09 },
+            { rate: 0.10, threshold: 0.11 },
+            { rate: 0.12, threshold: 0.14 },
+            { rate: 0.14, threshold: 0.17 }
+        ];
+    } else if (channel === "high") { // 高价渠道
+        rates = [
+            { rate: 0.04, threshold: 0.04 },
+            { rate: 0.06, threshold: 0.08 },
+            { rate: 0.08, threshold: 0.12 },
+            { rate: 0.10, threshold: 0.16 },
+            { rate: 0.12, threshold: 0.20 },
+            { rate: 0.14, threshold: 0.24 }
+        ];
+    }
+
+    // 找到下一个提点的阈值
+    for (let i = 0; i < rates.length; i++) {
+        if (conversionRate < rates[i].threshold) {
+            return rates[i].threshold;
+        }
+    }
+
+    return null; // 如果当前订转已经达到最高提点，返回 null
+}
+
+function updateCalculations() {
+    const channel = document.getElementById("channel").value;
+    let totalExamples = 0;
+    let totalOrders = 0;
+    let totalGMV = 0;
+
+    document.querySelectorAll('#performanceTable tbody tr').forEach(row => {
+        const examples = parseFloat(row.querySelector('.examples').value) || 0;
+        const orders = parseFloat(row.querySelector('.orders').value) || 0;
+        const gmv = parseFloat(row.querySelector('.gmv').value) || 0;
+
+        totalExamples += examples;
+        totalOrders += orders;
+        totalGMV += gmv;
+    });
+
+    const totalConversionRate = totalExamples ? (totalOrders / totalExamples) : 0;
+    const commissionRate = getCommissionRate(totalConversionRate, channel);
+    const totalCommission = totalGMV * commissionRate;
+    const actualCommission = totalCommission * 0.8; // 实际到手提成为总提成金额的 80%
+
+    // 计算距离下一个提点差多少订单
+    const nextThreshold = getNextThreshold(totalConversionRate, channel);
+    let ordersNeeded = 0;
+    if (nextThreshold !== null) {
+        ordersNeeded = Math.ceil((nextThreshold * totalExamples) - totalOrders);
+    }
+
+    document.getElementById('totalExamples').textContent = totalExamples;
+    document.getElementById('totalOrders').textContent = totalOrders;
+    document.getElementById('totalGMV').textContent = totalGMV.toFixed(2);
+
+    document.getElementById('totalConversionRate').textContent = (totalConversionRate * 100).toFixed(2) + '%';
+    document.getElementById('commissionRate').textContent = (commissionRate * 100).toFixed(2) + '%';
+    document.getElementById('totalCommission').textContent = totalCommission.toFixed(2);
+    document.getElementById('actualCommission').textContent = actualCommission.toFixed(2);
+
+    // 显示距离下一个提点差多少订单
+    if (nextThreshold !== null) {
+        document.getElementById('ordersNeeded').textContent = ordersNeeded;
+    } else {
+        document.getElementById('ordersNeeded').textContent = "已达到最高提点";
+    }
+}
+
+function saveData() {
+    const data = [];
+    document.querySelectorAll('#performanceTable tbody tr').forEach(row => {
+        const examples = row.querySelector('.examples').value;
+        const orders = row.querySelector('.orders').value;
+        const gmv = row.querySelector('.gmv').value;
+        data.push({ examples, orders, gmv });
+    });
+    localStorage.setItem('performanceData', JSON.stringify(data));
+    alert('数据已保存！');
+}
+
+function loadData() {
+    const data = JSON.parse(localStorage.getItem('performanceData'));
+    if (data) {
+        document.querySelectorAll('#performanceTable tbody tr').forEach((row, index) => {
+            if (data[index]) {
+                row.querySelector('.examples').value = data[index].examples;
+                row.querySelector('.orders').value = data[index].orders;
+                row.querySelector('.gmv').value = data[index].gmv;
+            }
+        });
+        updateCalculations();
+    }
+}
+
+function exportData() {
+    const rows = document.querySelectorAll('#performanceTable tbody tr');
+    let csvContent = "data:text/csv;charset=utf-8,期数,例子数,订单数,GMV\n";
+
+    rows.forEach((row, index) => {
+        const examples = row.querySelector('.examples').value;
+        const orders = row.querySelector('.orders').value;
+        const gmv = row.querySelector('.gmv').value;
+        csvContent += `${index + 1},${examples},${orders},${gmv}\n`;
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "performance_data.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+document.querySelectorAll('#performanceTable input').forEach(input => {
+    input.addEventListener('input', updateCalculations);
+});
+
+document.getElementById('channel').addEventListener('change', updateCalculations);
+
+// 页面加载时自动加载保存的数据
+window.addEventListener('load', loadData);
+</script>
+
+</body>
+</html>
