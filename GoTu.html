@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>绩效核算工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    
+    <!-- 配置Tailwind自定义颜色和字体 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        neutral: '#F5F7FA',
+                        'neutral-dark': '#4E5969',
+                        success: '#52C41A',
+                        warning: '#FAAD14',
+                        danger: '#FF4D4F'
+                    },
+                    fontFamily: {
+                        inter: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .card-shadow {
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            }
+            .input-focus {
+                @apply focus:ring-2 focus:ring-primary/30 focus:border-primary focus:outline-none;
+            }
+            .btn-hover {
+                @apply hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200;
+            }
+            .table-hover-row {
+                @apply hover:bg-neutral/50 transition-colors duration-150;
+            }
+        }
+    </style>
+</head>
+<body class="font-inter bg-gray-50 text-neutral-dark min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+        <!-- 页面标题 -->
+        <header class="mb-8 text-center">
+            <h1 class="text-[clamp(1.8rem,4vw,2.5rem)] font-bold text-gray-800 mb-2">绩效核算工具</h1>
+            <p class="text-gray-500">高效计算不同渠道和季节的绩效提成</p>
+        </header>
+
+        <!-- 渠道说明卡片 -->
+        <div class="bg-white rounded-xl p-5 mb-6 card-shadow transition-all duration-300 hover:shadow-xl">
+            <h3 class="text-lg font-semibold mb-3 text-primary flex items-center">
+                <i class="fa fa-info-circle mr-2"></i>渠道分类说明
+            </h3>
+            <div class="grid md:grid-cols-3 gap-4">
+                <div class="p-3 bg-blue-50 rounded-lg border border-blue-100">
+                    <div class="font-medium text-primary mb-1">低价渠道</div>
+                    <div class="text-sm text-gray-600">IP（19元、29元）、APP、Koc</div>
+                </div>
+                <div class="p-3 bg-green-50 rounded-lg border border-green-100">
+                    <div class="font-medium text-secondary mb-1">中价渠道</div>
+                    <div class="text-sm text-gray-600">IP（49元）、商务</div>
+                </div>
+                <div class="p-3 bg-purple-50 rounded-lg border border-purple-100">
+                    <div class="font-medium text-accent mb-1">高价渠道</div>
+                    <div class="text-sm text-gray-600">IP（99元）、信息流、大搜</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 选择器区域 -->
+        <div class="bg-white rounded-xl p-5 mb-6 card-shadow">
+            <div class="flex flex-wrap items-center gap-4">
+                <div class="flex items-center">
+                    <label for="season" class="mr-2 text-gray-700">选择季节：</label>
+                    <select id="season" class="border border-gray-300 rounded-lg px-3 py-2 input-focus bg-white">
+                        <option value="offseason">淡季</option>
+                        <option value="peak">旺季</option>
+                    </select>
+                </div>
+                
+                <div class="flex items-center">
+                    <label for="channel" class="mr-2 text-gray-700">选择渠道：</label>
+                    <select id="channel" class="border border-gray-300 rounded-lg px-3 py-2 input-focus bg-white">
+                        <option value="low">低价渠道</option>
+                        <option value="medium">中价渠道</option>
+                        <option value="high">高价渠道</option>
+                    </select>
+                </div>
+                
+                <div class="ml-auto flex gap-3">
+                    <button onclick="saveData()" class="bg-primary text-white px-5 py-2 rounded-lg flex items-center btn-hover">
+                        <i class="fa fa-save mr-2"></i>保存数据
+                    </button>
+                    <button onclick="exportData()" class="bg-success text-white px-5 py-2 rounded-lg flex items-center btn-hover">
+                        <i class="fa fa-download mr-2"></i>导出CSV
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 数据输入表格 -->
+        <div class="bg-white rounded-xl p-5 mb-6 card-shadow">
+            <h2 class="text-xl font-semibold mb-4 text-gray-800 flex items-center">
+                <i class="fa fa-table mr-2 text-primary"></i>绩效数据录入
+            </h2>
+            <table id="performanceTable" class="w-full">
+                <thead>
+                    <tr class="bg-gray-50 text-left">
+                        <th class="px-4 py-3 text-gray-700 font-medium rounded-tl-lg">期数</th>
+                        <th class="px-4 py-3 text-gray-700 font-medium">例子数</th>
+                        <th class="px-4 py-3 text-gray-700 font-medium">订单数</th>
+                        <th class="px-4 py-3 text-gray-700 font-medium rounded-tr-lg">GMV</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="border-b border-gray-100 table-hover-row">
+                        <td class="px-4 py-3 font-medium">1</td>
+                        <td class="px-4 py-3"><input type="number" class="examples w-full border border-gray-300 rounded-lg px-3 py-2 input-focus"></td>
+                        <td class="px-4 py-3"><input type="number" class="orders w-full border border-gray-300 rounded-lg px-3 py-2 input-focus"></td>
+                        <td class="px-4 py-3"><input type="number" class="gmv w-full border border-gray-300 rounded-lg px-3 py-2 input-focus"></td>
+                    </tr>
+                    <tr class="border-b border-gray-100 table-hover-row">
+                        <td class="px-4 py-3 font-medium">2</td>
+                        <td class="px-4 py-3"><input type="number" class="examples w-full border border-gray-300 rounded-lg px-3 py-2 input-focus"></td>
+                        <td class="px-4 py-3"><input type="number" class="orders w-full border border-gray-300 rounded-lg px-3 py-2 input-focus"></td>
+                        <td class="px-4 py-3"><input type="number" class="gmv w-full border border-gray-300 rounded-lg px-3 py-2 input-focus"></td>
+                    </tr>
+                    <tr class="border-b border-gray-100 table-hover-row">
+                        <td class="px-4 py-3 font-medium">3</td>
+                        <td class="px-4 py-3"><input type="number" class="examples w-full border border-gray-300 rounded-lg px-3 py-2 input-focus"></td>
+                        <td class="px-4 py-3"><input type="number" class="orders w-full border border-gray-300 rounded-lg px-3 py-2 input-focus"></td>
+                        <td class="px-4 py-3"><input type="number" class="gmv w-full border border-gray-300 rounded-lg px-3 py-2 input-focus"></td>
+                    </tr>
+                    <tr class="table-hover-row">
+                        <td class="px-4 py-3 font-medium">4</td>
+                        <td class="px-4 py-3"><input type="number" class="examples w-full border border-gray-300 rounded-lg px-3 py-2 input-focus"></td>
+                        <td class="px-4 py-3"><input type="number" class="orders w-full border border-gray-300 rounded-lg px-3 py-2 input-focus"></td>
+                        <td class="px-4 py-3"><input type="number" class="gmv w-full border border-gray-300 rounded-lg px-3 py-2 input-focus"></td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr class="bg-gray-50 font-bold">
+                        <td class="px-4 py-3 rounded-bl-lg">总计</td>
+                        <td class="px-4 py-3" id="totalExamples">-</td>
+                        <td class="px-4 py-3" id="totalOrders">-</td>
+                        <td class="px-4 py-3 rounded-br-lg" id="totalGMV">-</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <!-- 计算结果区域 -->
+        <div class="bg-white rounded-xl p-5 card-shadow">
+            <h2 class="text-xl font-semibold mb-4 text-gray-800 flex items-center">
+                <i class="fa fa-bar-chart mr-2 text-accent"></i>绩效计算结果
+            </h2>
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="bg-gray-50 text-left">
+                            <th class="px-4 py-3 text-gray-700 font-medium rounded-tl-lg">总订单转化率</th>
+                            <th class="px-4 py-3 text-gray-700 font-medium">提成比率</th>
+                            <th class="px-4 py-3 text-gray-700 font-medium">总提成金额</th>
+                            <th class="px-4 py-3 text-gray-700 font-medium">实际到手提成</th>
+                            <th class="px-4 py-3 text-gray-700 font-medium rounded-tr-lg">距离下一个提点差多少订单</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="px-4 py-4" id="totalConversionRate">-</td>
+                            <td class="px-4 py-4" id="commissionRate">-</td>
+                            <td class="px-4 py-4" id="totalCommission">-</td>
+                            <td class="px-4 py-4" id="actualCommission">-</td>
+                            <td class="px-4 py-4" id="ordersNeeded">-</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 页脚 -->
+        <footer class="mt-10 text-center text-gray-500 text-sm">
+            <p>绩效核算工具 &copy; 2023 - 设计与开发</p>
+        </footer>
+    </div>
+
+    <script>
+        // 提成比率规则
+        function getCommissionRates(channel, season) {
+            if (season === "offseason") {
+                // 淡季提点规则
+                if (channel === "low") {
+                    return [
+                        { rate: 0.05, threshold: 0.01 }, // 提点5%（≥1%-＜3%）
+                        { rate: 0.07, threshold: 0.03 }, // 提点7%（≥3%-＜5%）
+                        { rate: 0.09, threshold: 0.05 }, // 提点9%（≥5%-＜8%）
+                        { rate: 0.11, threshold: 0.08 }, // 提点11%（≥8%-＜10%）
+                        { rate: 0.13, threshold: 0.10 }, // 提点13%（≥10%-＜12%）
+                        { rate: 0.15, threshold: 0.12 }  // 提点15%（订转≥12%）
+                    ];
+                } else if (channel === "medium") {
+                    return [
+                        { rate: 0.04, threshold: 0.02 }, // 提点4%（≥2%-＜5%）
+                        { rate: 0.06, threshold: 0.05 }, // 提点6%（≥5%-＜8%）
+                        { rate: 0.08, threshold: 0.08 }, // 提点8%（≥8%-＜10%）
+                        { rate: 0.10, threshold: 0.10 }, // 提点10%（≥10%-＜13%）
+                        { rate: 0.12, threshold: 0.13 }, // 提点12%（≥13%-＜16%）
+                        { rate: 0.14, threshold: 0.16 }  // 提点14%（订转≥16%）
+                    ];
+                } else if (channel === "high") {
+                    return [
+                        { rate: 0.04, threshold: 0.04 }, // 提点4%（≥4%-＜8%）
+                        { rate: 0.06, threshold: 0.08 }, // 提点6%（≥8%-＜12%）
+                        { rate: 0.08, threshold: 0.12 }, // 提点8%（≥12%-＜15%）
+                        { rate: 0.10, threshold: 0.15 }, // 提点10%（≥15%-＜19%）
+                        { rate: 0.12, threshold: 0.19 }, // 提点12%（≥19%-＜23%）
+                        { rate: 0.14, threshold: 0.23 }  // 提点14%（订转≥23%）
+                    ];
+                }
+            } else {
+                // 旺季提点规则
+                if (channel === "low") {
+                    return [
+                        { rate: 0.05, threshold: 0.02 }, // 提点5%（≥2%-＜4%）
+                        { rate: 0.07, threshold: 0.04 }, // 提点7%（≥4%-＜6%）
+                        { rate: 0.09, threshold: 0.06 }, // 提点9%（≥6%-＜9%）
+                        { rate: 0.11, threshold: 0.09 }, // 提点11%（≥9%-＜11%）
+                        { rate: 0.13, threshold: 0.11 }, // 提点13%（≥11%-＜13%）
+                        { rate: 0.15, threshold: 0.13 }  // 提点15%（订转≥13%）
+                    ];
+                } else if (channel === "medium") {
+                    return [
+                        { rate: 0.04, threshold: 0.03 }, // 提点4%（≥3%-＜6%）
+                        { rate: 0.06, threshold: 0.06 }, // 提点6%（≥6%-＜9%）
+                        { rate: 0.08, threshold: 0.09 }, // 提点8%（≥9%-＜11%）
+                        { rate: 0.10, threshold: 0.11 }, // 提点10%（≥11%-＜14%）
+                        { rate: 0.12, threshold: 0.14 }, // 提点12%（≥14%-＜17%）
+                        { rate: 0.14, threshold: 0.17 }  // 提点14%（订转≥17%）
+                    ];
+                } else if (channel === "high") {
+                    return [
+                        { rate: 0.04, threshold: 0.04 }, // 提点4%（≥4%-＜8%）
+                        { rate: 0.06, threshold: 0.08 }, // 提点6%（≥8%-＜12%）
+                        { rate: 0.08, threshold: 0.12 }, // 提点8%（≥12%-＜16%）
+                        { rate: 0.10, threshold: 0.16 }, // 提点10%（≥16%-＜20%）
+                        { rate: 0.12, threshold: 0.20 }, // 提点12%（≥20%-＜24%）
+                        { rate: 0.14, threshold: 0.24 }  // 提点14%（订转≥24%）
+                    ];
+                }
+            }
+        }
+
+        // 获取提成比率
+        function getCommissionRate(conversionRate, channel, season) {
+            const rates = getCommissionRates(channel, season);
+            let maxRate = 0;
+            for (let i = 0; i < rates.length; i++) {
+                if (conversionRate >= rates[i].threshold && rates[i].rate > maxRate) {
+                    maxRate = rates[i].rate;
+                }
+            }
+            return maxRate;
+        }
+
+        // 获取下一个提点阈值
+        function getNextThreshold(conversionRate, channel, season) {
+            const rates = getCommissionRates(channel, season);
+            for (let i = 0; i < rates.length; i++) {
+                if (conversionRate < rates[i].threshold) {
+                    return rates[i].threshold;
+                }
+            }
+            return null; // 已达到最高提点
+        }
+
+        // 更新计算结果（移除了数值变化动画）
+        function updateCalculations() {
+            const channel = document.getElementById("channel").value;
+            const season = document.getElementById("season").value;
+            let totalExamples = 0;
+            let totalOrders = 0;
+            let totalGMV = 0;
+
+            // 计算总和
+            document.querySelectorAll('#performanceTable tbody tr').forEach(row => {
+                const examples = parseFloat(row.querySelector('.examples').value) || 0;
+                const orders = parseFloat(row.querySelector('.orders').value) || 0;
+                const gmv = parseFloat(row.querySelector('.gmv').value) || 0;
+
+                totalExamples += examples;
+                totalOrders += orders;
+                totalGMV += gmv;
+            });
+
+            // 计算绩效指标
+            const totalConversionRate = totalExamples ? (totalOrders / totalExamples) : 0;
+            const commissionRate = getCommissionRate(totalConversionRate, channel, season);
+            const totalCommission = totalGMV * commissionRate;
+            const actualCommission = totalCommission * 0.8; // 实际到手提成为总提成金额的 80%
+
+            // 计算距离下一个提点差多少订单
+            const nextThreshold = getNextThreshold(totalConversionRate, channel, season);
+            let ordersNeeded = 0;
+            if (nextThreshold !== null) {
+                ordersNeeded = Math.ceil((nextThreshold * totalExamples) - totalOrders);
+            }
+
+            // 直接更新UI显示，不使用动画
+            document.getElementById('totalExamples').textContent = Math.round(totalExamples);
+            document.getElementById('totalOrders').textContent = Math.round(totalOrders);
+            document.getElementById('totalGMV').textContent = totalGMV.toFixed(2);
+
+            document.getElementById('totalConversionRate').textContent = (totalConversionRate * 100).toFixed(2) + '%';
+            document.getElementById('commissionRate').textContent = (commissionRate * 100).toFixed(2) + '%';
+            document.getElementById('totalCommission').textContent = totalCommission.toFixed(2);
+            document.getElementById('actualCommission').textContent = actualCommission.toFixed(2);
+
+            if (nextThreshold !== null) {
+                document.getElementById('ordersNeeded').textContent = ordersNeeded;
+            } else {
+                document.getElementById('ordersNeeded').textContent = "已达到最高提点";
+            }
+        }
+
+        // 保存数据到本地存储
+        function saveData() {
+            const data = [];
+            document.querySelectorAll('#performanceTable tbody tr').forEach(row => {
+                const examples = row.querySelector('.examples').value;
+                const orders = row.querySelector('.orders').value;
+                const gmv = row.querySelector('.gmv').value;
+                data.push({ examples, orders, gmv });
+            });
+            
+            // 保存当前选择的季节和渠道
+            const season = document.getElementById("season").value;
+            const channel = document.getElementById("channel").value;
+            localStorage.setItem('performanceData', JSON.stringify({data, season, channel}));
+            
+            // 显示保存成功提示
+            const notification = document.createElement('div');
+            notification.className = 'fixed bottom-4 right-4 bg-success text-white px-4 py-2 rounded-lg shadow-lg transform transition-all duration-300 translate-y-10 opacity-0';
+            notification.textContent = '数据已成功保存！';
+            document.body.appendChild(notification);
+            
+            // 显示动画
+            setTimeout(() => {
+                notification.classList.remove('translate-y-10', 'opacity-0');
+            }, 10);
+            
+            // 3秒后隐藏
+            setTimeout(() => {
+                notification.classList.add('translate-y-10', 'opacity-0');
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 3000);
+        }
+
+        // 加载保存的数据
+        function loadData() {
+            const savedData = JSON.parse(localStorage.getItem('performanceData'));
+            if (savedData && savedData.data) {
+                document.querySelectorAll('#performanceTable tbody tr').forEach((row, index) => {
+                    if (savedData.data[index]) {
+                        row.querySelector('.examples').value = savedData.data[index].examples;
+                        row.querySelector('.orders').value = savedData.data[index].orders;
+                        row.querySelector('.gmv').value = savedData.data[index].gmv;
+                    }
+                });
+                
+                // 恢复保存时的选择
+                if (savedData.season) {
+                    document.getElementById("season").value = savedData.season;
+                }
+                if (savedData.channel) {
+                    document.getElementById("channel").value = savedData.channel;
+                }
+                
+                updateCalculations();
+            }
+        }
+
+        // 导出数据为CSV
+        function exportData() {
+            const season = document.getElementById("season").value;
+            const channel = document.getElementById("channel").value;
+            const rows = document.querySelectorAll('#performanceTable tbody tr');
+            
+            let csvContent = `data:text/csv;charset=utf-8,季节,${season === 'offseason' ? '淡季' : '旺季'},渠道,${channel === 'low' ? '低价渠道' : channel === 'medium' ? '中价渠道' : '高价渠道'}\n`;
+            csvContent += "期数,例子数,订单数,GMV\n";
+
+            rows.forEach((row, index) => {
+                const examples = row.querySelector('.examples').value || 0;
+                const orders = row.querySelector('.orders').value || 0;
+                const gmv = row.querySelector('.gmv').value || 0;
+                csvContent += `${index + 1},${examples},${orders},${gmv}\n`;
+            });
+
+            // 添加总计行
+            const totalExamples = document.getElementById('totalExamples').textContent;
+            const totalOrders = document.getElementById('totalOrders').textContent;
+            const totalGMV = document.getElementById('totalGMV').textContent;
+            csvContent += `总计,${totalExamples},${totalOrders},${totalGMV}\n`;
+
+            // 导出文件
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `绩效数据_${season === 'offseason' ? '淡季' : '旺季'}_${channel === 'low' ? '低价渠道' : channel === 'medium' ? '中价渠道' : '高价渠道'}.csv`);
+            document.body.appendChild(link);
+            
+            // 模拟点击下载
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // 事件监听
+        document.querySelectorAll('#performanceTable input').forEach(input => {
+            input.addEventListener('input', updateCalculations);
+            // 添加输入框聚焦效果
+            input.addEventListener('focus', function() {
+                this.parentElement.classList.add('scale-101');
+                this.parentElement.style.transition = 'transform 0.2s ease';
+            });
+            input.addEventListener('blur', function() {
+                this.parentElement.classList.remove('scale-101');
+            });
+        });
+
+        // 季节和渠道选择器变化时更新计算
+        document.getElementById('channel').addEventListener('change', updateCalculations);
+        document.getElementById('season').addEventListener('change', updateCalculations);
+
+        // 页面加载时自动加载保存的数据
+        window.addEventListener('load', loadData);
+    </script>
+</body>
+</html>
